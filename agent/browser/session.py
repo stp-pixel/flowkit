@@ -3,7 +3,7 @@ import asyncio
 import dataclasses
 
 from agent import config
-from agent.browser.actions import Step, perform
+from agent.browser.actions import Step, StepResult, perform
 from agent.browser.cdp import CdpClient, CdpError, host_allowed, list_pages, pick_page
 from agent.browser.snapshot import render_table, take_snapshot
 
@@ -62,15 +62,14 @@ class BrowserSession:
         await self._drop_client()
         try:
             pages = await self._list_pages(self._port)
-            usable = [p for p in pages if p.ws_url]
-            if not usable and any(
-                host_allowed(p.url, self._allowed_hosts) for p in pages
-            ):
+            flow = [p for p in pages if host_allowed(p.url, self._allowed_hosts)]
+            if flow and not any(p.ws_url for p in flow):
                 raise CdpError(
                     "NO_FLOW_PAGE",
                     "the Flow tab has no debugger endpoint available",
                     hint="Close DevTools or any other debugger attached to the Flow tab",
                 )
+            usable = [p for p in pages if p.ws_url]
             page = pick_page(usable, self._allowed_hosts, self._prefer)
             self._client = await self._connect(page.ws_url, self._timeout_s)
         except CdpError:
@@ -141,26 +140,27 @@ class BrowserSession:
                 try:
                     res = await self._perform(client, step, self._allowed_hosts)
                 except CdpError as exc:
-                    if exc.code == "CDP_CLOSED":
-                        await self._drop_client()
-                    raise
+                    res = StepResult(step.op, False, exc.code, exc.message)
+                    if exc.code == "CDP_TIMEOUT":
+                        closed = True  # page state unknown: drop the client
                 results.append(dataclasses.asdict(res))
                 if not res.ok:
-                    closed = res.error == "CDP_CLOSED"
+                    closed = closed or res.error == "CDP_CLOSED"
                     break
                 completed += 1
             closed = closed or client.closed
             if closed:
                 await self._drop_client()
-            url, table = self._last_url, None
+            out = {"results": results, "completed": completed,
+                   "url": self._last_url, "table": None}
             if snapshot and not closed:
                 try:
-                    url, table, _ = await self._table(client, text_chars)
+                    out["url"], out["table"], _ = await self._table(client, text_chars)
                 except CdpError as exc:
-                    if exc.code != "CDP_CLOSED":
-                        raise
-                    await self._drop_client()
-            return {"results": results, "completed": completed, "url": url, "table": table}
+                    out["table_error"] = exc.code
+                    if exc.code in ("CDP_CLOSED", "CDP_TIMEOUT"):
+                        await self._drop_client()
+            return out
 
 
 _session: BrowserSession | None = None

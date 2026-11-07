@@ -118,10 +118,26 @@ async def test_status_reports_page_url():
 async def test_pages_without_ws_url_are_skipped_or_reported():
     pages = [PageTarget("1", FLOW, "t", ""), PageTarget("2", FLOW + "2", "t", "ws://x/2")]
     s, connect_fn, *_ = make(pages=pages)
+    seen = []
+    orig = s._connect
+
+    async def spy(ws, t):
+        seen.append(ws)
+        return await orig(ws, t)
+
+    s._connect = spy
     await s.snapshot()
-    assert connect_fn.calls == 1
+    assert seen == ["ws://x/2"]
     s2, *_ = make(pages=[PageTarget("1", FLOW, "t", "")])
     st = await s2.status()
+    assert st["error"] == "NO_FLOW_PAGE" and "DevTools" in st["hint"]
+
+
+async def test_devtools_hint_even_when_other_page_has_ws_url():
+    pages = [PageTarget("0", "chrome://newtab/", "n", "ws://x/0"),
+             PageTarget("1", FLOW, "t", "")]
+    s, *_ = make(pages=pages)
+    st = await s.status()
     assert st["error"] == "NO_FLOW_PAGE" and "DevTools" in st["hint"]
 
 
@@ -223,3 +239,38 @@ def test_singleton_uses_config(monkeypatch):
     assert s._prefer == "proj-123" and s._ws_port == config.WS_PORT
     assert s._port == config.FLOW_CDP_PORT
     assert session_mod.get_browser_session() is s
+
+
+def _scripted_perform(seq):
+    async def perform(c, step, hosts):
+        item = seq.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+    return perform
+
+
+async def test_act_timeout_mid_batch_keeps_results_and_drops_client():
+    seq = [StepResult("click", True), CdpError("CDP_TIMEOUT", "slow"), StepResult("click", True)]
+    s, connect_fn, _, perform_fn, _ = make(perform=_scripted_perform(seq))
+    r = await s.act([click("e1"), click("e2"), click("e3")])
+    assert r["completed"] == 1 and perform_fn.calls == 2
+    assert [x["error"] for x in r["results"]] == [None, "CDP_TIMEOUT"]
+    await s.snapshot()
+    assert connect_fn.calls == 2
+
+
+async def test_act_js_error_mid_batch_keeps_client():
+    seq = [StepResult("click", True), CdpError("JS_ERROR", "bad")]
+    s, connect_fn, _, perform_fn, _ = make(perform=_scripted_perform(seq))
+    r = await s.act([click("e1"), click("e2"), click("e3")])
+    assert r["completed"] == 1 and r["results"][1]["error"] == "JS_ERROR"
+    assert perform_fn.calls == 2
+    await s.snapshot()
+    assert connect_fn.calls == 1
+
+
+async def test_act_final_snapshot_failure_keeps_results():
+    s, *_ = make(snaps=[CdpError("CDP_TIMEOUT", "slow")])
+    r = await s.act([click("e1"), click("e2")])
+    assert r["completed"] == 2 and r["table"] is None and r["table_error"] == "CDP_TIMEOUT"
