@@ -65,8 +65,8 @@ FLOW_SESSION_PROJECT_IDLE_S = max(
 # loopback (127.0.0.1). Off by default; the port must differ from WS_PORT.
 FLOW_CDP_ENABLED = os.environ.get("FLOW_CDP_ENABLED", "0") == "1"
 FLOW_CDP_PORT = int(os.environ.get("FLOW_CDP_PORT", "9333"))
-FLOW_CDP_ALLOWED_HOSTS = [
-    h.strip()
+FLOW_CDP_ALLOWED_HOSTS = [  # hostnames are case-insensitive; urlsplit lowercases
+    h.strip().lower()
     for h in os.environ.get("FLOW_CDP_ALLOWED_HOSTS", "flow.google.com").split(",")
     if h.strip()
 ]

@@ -91,8 +91,10 @@ class CdpClient:
     @classmethod
     async def connect(cls, ws_url: str, timeout_s: float) -> "CdpClient":
         try:
+            # proxy=None: the DevTools socket is loopback only and must never be
+            # routed through HTTPS_PROXY (websockets >= 15 honours it by default).
             ws = await websockets.connect(
-                ws_url, max_size=16 * 2**20, open_timeout=timeout_s
+                ws_url, max_size=16 * 2**20, open_timeout=timeout_s, proxy=None
             )
         except (OSError, TimeoutError, websockets.WebSocketException) as exc:
             raise CdpError("CDP_UNREACHABLE", f"cannot open {ws_url}: {exc}") from exc

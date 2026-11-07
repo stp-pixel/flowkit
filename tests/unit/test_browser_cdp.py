@@ -219,3 +219,27 @@ async def test_connect_sends_no_origin_header(fake_cdp_records_headers):
     c = await CdpClient.connect(url, 5)
     await c.close()
     assert seen and "origin" not in {k.lower() for k in seen}
+
+
+def test_allowed_hosts_are_lowercased(monkeypatch):
+    monkeypatch.setenv("FLOW_CDP_ALLOWED_HOSTS", " Flow.Google.COM , ,Labs.Google ")
+    try:
+        importlib.reload(config)
+        assert config.FLOW_CDP_ALLOWED_HOSTS == ["flow.google.com", "labs.google"]
+    finally:
+        monkeypatch.undo()
+        importlib.reload(config)
+
+
+async def test_connect_ignores_proxy_env(fake_cdp, monkeypatch):
+    for k in ("HTTPS_PROXY", "HTTP_PROXY", "https_proxy", "http_proxy",
+              "ALL_PROXY", "all_proxy"):
+        monkeypatch.setenv(k, "http://127.0.0.1:1")
+    for k in ("NO_PROXY", "no_proxy"):
+        monkeypatch.delenv(k, raising=False)
+    c = await CdpClient.connect(fake_cdp, 5)
+    try:
+        r1, r2 = await asyncio.gather(c.send("A.one"), c.send("B.two"))
+    finally:
+        await c.close()
+    assert r1 == {"echo": "A.one"} and r2 == {"echo": "B.two"}

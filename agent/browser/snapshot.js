@@ -4,7 +4,7 @@
 // selectOption() only, sets a <select> value. It never touches the network.
 // Ids are stable ("e<n>" from a WeakMap counter) for as long as the node lives.
 (() => {
-  const VERSION = 1;
+  const VERSION = 2;
   if (window.__fkIndex && window.__fkIndex.version === VERSION) return;
 
   const ROLES = [
@@ -153,6 +153,19 @@
     return parts.join('\n').slice(0, MAX_TEXT);
   };
 
+  // App-shell layouts scroll an inner pane, not the document. `scroll` wheels at
+  // the viewport centre, so the pane that matters is the one under that point.
+  const SCROLLABLE = new Set(['auto', 'scroll', 'overlay']);
+  const paneAtCentre = () => {
+    let e = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+    const root = document.scrollingElement || document.documentElement;
+    for (; e && e !== root; e = e.parentElement) {
+      if (SCROLLABLE.has(getComputedStyle(e).overflowY) &&
+          e.scrollHeight > e.clientHeight + 1) return e;
+    }
+    return null;
+  };
+
   const prune = () => {
     for (const [n, ref] of nodes) if (!ref.deref()) nodes.delete(n);
   };
@@ -167,14 +180,16 @@
       else omitted++;
     }
     const se = document.scrollingElement || document.documentElement;
+    const pane = paneAtCentre();
     return {
       url: location.href,
       title: document.title,
       text: visibleText(),
       actions,
       omitted,
-      can_scroll_up: se.scrollTop > 0,
-      can_scroll_down: se.scrollTop + window.innerHeight < se.scrollHeight - 1,
+      can_scroll_up: se.scrollTop > 0 || (!!pane && pane.scrollTop > 0),
+      can_scroll_down: se.scrollTop + window.innerHeight < se.scrollHeight - 1 ||
+        (!!pane && pane.scrollTop + pane.clientHeight < pane.scrollHeight - 1),
     };
   };
 

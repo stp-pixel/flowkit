@@ -5,7 +5,7 @@ from pathlib import Path
 from agent.browser.cdp import CdpClient, CdpError
 
 SNAPSHOT_JS: str = Path(__file__).with_name("snapshot.js").read_text(encoding="utf-8")
-INDEX_VERSION = 1
+INDEX_VERSION = 2
 
 
 @dataclass

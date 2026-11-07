@@ -123,3 +123,23 @@ def test_cross_site_browser_call_refused(client, fake):
     r = client.post("/api/browser/act", headers={"origin": "https://evil.example"},
                     json={"steps": [WAIT]})
     assert r.status_code == 403
+
+
+def _wft(timeout_s):
+    return {"op": "wait_for_text", "text": "done", "timeout_s": timeout_s}
+
+
+def test_act_wait_budget_within_120s_is_accepted(client, fake):
+    r = client.post("/api/browser/act", json={"steps": [_wft(60), _wft(60)]})
+    assert r.status_code == 200
+
+
+@pytest.mark.parametrize("steps", [
+    [_wft(61), _wft(60)],
+    [_wft(121)],
+    [_wft(115), {"op": "wait", "ms": 6000}],
+])
+def test_act_wait_budget_over_120s_is_rejected(client, fake, steps):
+    r = client.post("/api/browser/act", json={"steps": steps})
+    assert r.status_code == 422 and "120" in r.text
+    assert fake.steps is None

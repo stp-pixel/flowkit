@@ -82,14 +82,23 @@ class BrowserSession:
         self._last_url = page.url
         return self._client
 
+    @staticmethod
+    def _url_only(url: str) -> tuple[str, str, list[dict]]:
+        return url, f"url: {url}\n(host not allowed — no actions)", []
+
     async def _table(self, client, text_chars: int) -> tuple[str, str, list[dict]]:
         href = await client.evaluate("location.href") or ""
         self._last_url = href
         if not host_allowed(href, self._allowed_hosts):
-            return href, f"url: {href}\n(host not allowed — no actions)", []
+            return self._url_only(href)
         snap = await self._take_snapshot(client)
+        # The page may have navigated between the two evaluates: judge the
+        # snapshot by the URL it was taken on, and reveal nothing else off-host.
+        self._last_url = snap.url or href
+        if not host_allowed(snap.url, self._allowed_hosts):
+            return self._url_only(snap.url)
         return (
-            href,
+            snap.url,
             render_table(snap, text_chars),
             [dataclasses.asdict(a) for a in snap.actions],
         )
@@ -143,6 +152,9 @@ class BrowserSession:
                     res = StepResult(step.op, False, exc.code, exc.message)
                     if exc.code == "CDP_TIMEOUT":
                         closed = True  # page state unknown: drop the client
+                except Exception as exc:  # a bug, not the page: state unknown
+                    res = StepResult(step.op, False, "INTERNAL", str(exc))
+                    closed = True
                 results.append(dataclasses.asdict(res))
                 if not res.ok:
                     closed = closed or res.error == "CDP_CLOSED"

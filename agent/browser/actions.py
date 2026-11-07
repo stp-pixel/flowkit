@@ -143,7 +143,7 @@ async def _resolve(client: CdpClient, step: ClickStep | FillStep) -> dict | Step
     return raw
 
 
-async def _dispatch(client: CdpClient, step: Any) -> StepResult:
+async def _dispatch(client: CdpClient, step: Any, allowed_hosts: list[str]) -> StepResult:
     op = step.op
     if isinstance(step, (ClickStep, FillStep)):
         hit = await _resolve(client, step)
@@ -183,6 +183,10 @@ async def _dispatch(client: CdpClient, step: Any) -> StepResult:
     if isinstance(step, WaitForTextStep):
         deadline = time.monotonic() + step.timeout_s
         while True:
+            # A long wait can outlive the page: stop if it left the allowed hosts.
+            href = await client.evaluate("location.href")
+            if not host_allowed(href or "", allowed_hosts):
+                return StepResult(op, False, "HOST_NOT_ALLOWED", href)
             visible = await _index(client, "visibleText()")
             present = isinstance(visible, str) and step.text in visible
             if present != step.absent:
@@ -199,7 +203,7 @@ async def perform(client: CdpClient, step: Step, allowed_hosts: list[str]) -> St
         href = await client.evaluate("location.href")
         if not host_allowed(href or "", allowed_hosts):
             return StepResult(step.op, False, "HOST_NOT_ALLOWED", href)
-        return await _dispatch(client, step)
+        return await _dispatch(client, step, allowed_hosts)
     except CdpError as exc:
         if exc.code == "CDP_CLOSED":
             return StepResult(step.op, False, "CDP_CLOSED", exc.message)

@@ -274,3 +274,37 @@ async def test_act_final_snapshot_failure_keeps_results():
     s, *_ = make(snaps=[CdpError("CDP_TIMEOUT", "slow")])
     r = await s.act([click("e1"), click("e2")])
     assert r["completed"] == 2 and r["table"] is None and r["table_error"] == "CDP_TIMEOUT"
+
+
+async def test_snapshot_redirect_between_href_and_snapshot_reveals_url_only():
+    # location.href said flow.google.com, but the page had moved by the time the
+    # snapshot ran: nothing from the off-host page may leak.
+    leaked = Snapshot("https://accounts.google.com/signin", "Sign in", "secret text",
+                      [Action("e1", "fill", "textbox", "Email")], 0, False, False)
+    s, *_ = make(snaps=[leaked])
+    r = await s.snapshot()
+    assert r["url"] == "https://accounts.google.com/signin"
+    assert r["actions"] == []
+    assert r["table"] == "url: https://accounts.google.com/signin\n(host not allowed — no actions)"
+
+
+async def test_act_final_table_redirect_reveals_url_only():
+    leaked = Snapshot("https://accounts.google.com/signin", "Sign in", "secret text",
+                      [Action("e1", "fill", "textbox", "Email")], 0, False, False)
+    s, *_ = make(snaps=[leaked])
+    r = await s.act([click("e1")])
+    assert r["url"] == "https://accounts.google.com/signin"
+    assert r["table"] == "url: https://accounts.google.com/signin\n(host not allowed — no actions)"
+
+
+async def test_act_unexpected_exception_is_internal_and_drops_client():
+    seq = [StepResult("click", True), KeyError("x"), StepResult("click", True)]
+    s, connect_fn, take_fn, perform_fn, clients = make(perform=_scripted_perform(seq))
+    r = await s.act([click("e1"), click("e2"), click("e3")])
+    assert perform_fn.calls == 2 and r["completed"] == 1
+    assert r["results"][1] == {"op": "click", "ok": False, "error": "INTERNAL",
+                               "detail": "'x'"}
+    assert r["table"] is None and take_fn.calls == 0
+    assert clients[0].close_calls == 1 and s._client is None
+    await s.snapshot()
+    assert connect_fn.calls == 2

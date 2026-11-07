@@ -12,7 +12,7 @@ from agent.browser.actions import (
     perform,
 )
 from agent.browser.cdp import CdpError
-from agent.browser.snapshot import take_snapshot
+from agent.browser.snapshot import INDEX_VERSION, take_snapshot
 
 HOSTS = ["127.0.0.1"]
 
@@ -99,7 +99,7 @@ async def test_resolve_and_select_option_contract(cdp_page):
     await c.evaluate("window.__fkIndex = {version: 0}")
     assert await c.evaluate(index_expr("resolve(1)")) == {"ok": False, "reason": "stale"}
     await c.evaluate(SNAPSHOT_JS)
-    assert await c.evaluate("window.__fkIndex.version") == 1
+    assert await c.evaluate("window.__fkIndex.version") == INDEX_VERSION
 
 
 async def _ids(c):
@@ -197,7 +197,7 @@ async def test_unknown_id_is_stale_even_before_any_snapshot(cdp_page):
     c = await cdp_page("flow_like.html")
     r = await perform(c, ClickStep(op="click", target="e999"), HOSTS)
     assert r.error == "STALE_ELEMENT"
-    assert await c.evaluate("window.__fkIndex.version") == 1
+    assert await c.evaluate("window.__fkIndex.version") == INDEX_VERSION
 
 
 async def test_click_covered_element_is_obscured(cdp_page):
@@ -260,3 +260,33 @@ async def test_steps_refused_after_leaving_allowed_host(cdp_page):
     assert not r.ok and r.error == "HOST_NOT_ALLOWED"
     # Refused before re-injecting: the off-host page never gets an index.
     assert await c.evaluate("typeof window.__fkIndex") == "undefined"
+
+
+async def test_inner_scroll_container_shows_scroll_hints(cdp_page):
+    c = await cdp_page("app_shell.html")
+    s = await take_snapshot(c)
+    labels = {a.label for a in s.actions}
+    assert "Top button" in labels and "Deep button" not in labels
+    assert s.can_scroll_down and not s.can_scroll_up
+    r = await perform(c, ScrollStep(op="scroll", dy=2000), HOSTS)
+    assert r.ok
+    deadline = time.monotonic() + 3
+    while True:
+        s2 = await take_snapshot(c)
+        if s2.can_scroll_up or time.monotonic() > deadline:
+            break
+        await asyncio.sleep(0.05)
+    assert s2.can_scroll_up and not s2.can_scroll_down
+    assert "Deep button" in {a.label for a in s2.actions}
+    # The document itself never scrolled: the hint came from the pane.
+    assert await c.evaluate("document.scrollingElement.scrollTop") == 0
+
+async def test_wait_for_text_stops_when_page_leaves_allowed_host(cdp_page):
+    c = await cdp_page("flow_like.html")
+    await c.evaluate("setTimeout(() => document.querySelector('#away').click(), 800)")
+    t0 = time.monotonic()
+    r = await perform(
+        c, WaitForTextStep(op="wait_for_text", text="never appears", timeout_s=5), HOSTS)
+    assert (r.ok, r.error) == (False, "HOST_NOT_ALLOWED")
+    assert r.detail and "localhost:" in r.detail
+    assert time.monotonic() - t0 < 4
