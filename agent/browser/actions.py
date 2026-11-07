@@ -6,47 +6,52 @@ import time
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from agent.browser.cdp import CdpClient, CdpError, host_allowed
 from agent.browser.snapshot import SNAPSHOT_JS, index_expr
 
+
+class _Step(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
 Target = Annotated[str, Field(pattern=r"^e[0-9]{1,9}$")]
 
 
-class ClickStep(BaseModel):
+class ClickStep(_Step):
     op: Literal["click"]
     target: Target
 
 
-class FillStep(BaseModel):
+class FillStep(_Step):
     op: Literal["fill"]
     target: Target
     text: str = Field(max_length=4000)
 
 
-class SelectStep(BaseModel):
+class SelectStep(_Step):
     op: Literal["select"]
     target: Target
     option: str
 
 
-class PressStep(BaseModel):
+class PressStep(_Step):
     op: Literal["press"]
     key: Literal["Enter", "Escape", "Tab", "Backspace"]
 
 
-class ScrollStep(BaseModel):
+class ScrollStep(_Step):
     op: Literal["scroll"]
     dy: int = Field(ge=-2000, le=2000)
 
 
-class WaitStep(BaseModel):
+class WaitStep(_Step):
     op: Literal["wait"]
     ms: int = Field(ge=0, le=10000)
 
 
-class WaitForTextStep(BaseModel):
+class WaitForTextStep(_Step):
     op: Literal["wait_for_text"]
     text: str = Field(min_length=1)
     timeout_s: float = Field(default=60, gt=0, le=600)

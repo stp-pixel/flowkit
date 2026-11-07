@@ -29,6 +29,7 @@ from agent.api.models import router as models_router
 from agent.api.providers import router as providers_router
 from agent.api.provider_jobs import router as provider_jobs_router
 from agent.api.active_project import router as active_project_router
+from agent.api.browser import router as browser_router
 from agent.worker.processor import get_worker_controller
 from agent.services.flow_client import get_flow_client
 from agent.services.event_bus import event_bus
@@ -206,6 +207,7 @@ app.include_router(tts_router, prefix="/api")
 app.include_router(materials_router, prefix="/api")
 app.include_router(music_router, prefix="/api")
 app.include_router(provider_jobs_router, prefix="/api")
+app.include_router(browser_router, prefix="/api")
 app.include_router(models_router)
 app.include_router(providers_router)
 app.include_router(active_project_router)
