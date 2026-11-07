@@ -7,7 +7,7 @@ Diagnose any FlowKit error and prescribe a fix. Knows the full error taxonomy ac
 - A request has been `PROCESSING` for > 10 minutes with no progress
 - A provider job is stuck `QUEUED` (no worker), `CLAIMED` past its lease, or `FAILED` — or any `/api/provider-jobs/*` call returns 409
 - `GET /health` returns `extension_connected: false`
-- User reports any error string containing: `UNSAFE_GENERATION`, `QUOTA`, `not found`, `CAPTCHA`, `UNUSUAL_ACTIVITY`, `NO_AT_TOKEN`, `NO_FLOW_PROJECT`, `UNSUPPORTED_ON_BATCH_API`, `browser control disabled`, `CDP_UNREACHABLE`, `PORT_CONFLICT`, `NO_FLOW_PAGE`, `HOST_NOT_ALLOWED`, `STALE_ELEMENT`, `OBSCURED`, `CDP_CLOSED`, `CDP_TIMEOUT`, `JS_ERROR`, `CDP_PROTOCOL`, `WAIT_TIMEOUT`, `table_error`, `NO_FLOW_TAB`, `FLOW_TAB_DISCARDED`, `NO_INJECTION_RESULT`, `extension_switched`, `Failed to fetch`, `MODEL_ACCESS_DENIED`, `PAYGATE_TIER_TWO`, `invalidTags`, `quotaExceeded`, `invalid_grant`
+- User reports any error string containing: `UNSAFE_GENERATION`, `QUOTA`, `not found`, `CAPTCHA`, `UNUSUAL_ACTIVITY`, `NO_AT_TOKEN`, `NO_FLOW_PROJECT`, `UNSUPPORTED_ON_BATCH_API`, `browser control disabled`, `CDP_UNREACHABLE`, `PORT_CONFLICT`, `NO_FLOW_PAGE`, `HOST_NOT_ALLOWED`, `STALE_ELEMENT`, `OBSCURED`, `CDP_CLOSED`, `CDP_TIMEOUT`, `JS_ERROR`, `CDP_PROTOCOL`, `WAIT_TIMEOUT`, `INTERNAL`, `host not allowed`, `table_error`, `NO_FLOW_TAB`, `FLOW_TAB_DISCARDED`, `NO_INJECTION_RESULT`, `extension_switched`, `Failed to fetch`, `MODEL_ACCESS_DENIED`, `PAYGATE_TIER_TWO`, `invalidTags`, `quotaExceeded`, `invalid_grant`
 - User asks "why did X fail", "what's wrong with the pipeline", "why is this stuck", "tại sao X lỗi", "lỗi gì vậy"
 - An HTTP 4xx/5xx reaches the main agent from any endpoint under `127.0.0.1:8100`
 - A YouTube upload returns `HttpError` from `googleapiclient`
@@ -192,6 +192,7 @@ Connection-level failures before any step return an HTTP error with detail `{cod
 | `PORT_CONFLICT` | 409 | `FLOW_CDP_PORT` equals `WS_PORT` (9222, the extension bridge) | Set `FLOW_CDP_PORT=9333` and launch the browser on 9333 |
 | `NO_FLOW_PAGE` | 409 | No Flow tab, or DevTools or another debugger is attached to it | Open and sign in to `https://flow.google.com/` in that profile; close DevTools or any other debugger attached to the Flow tab |
 | `HOST_NOT_ALLOWED` | step | The page is not on `FLOW_CDP_ALLOWED_HOSTS` (default `flow.google.com`), usually a sign-in page | Stop and ask the user to sign in themselves. Never type credentials |
+| `(host not allowed — no actions)` | snapshot / act `table` | Same as `HOST_NOT_ALLOWED`: the page is off the allowed hosts, so only its URL is shown | Stop and ask the user; never act on that page |
 | `STALE_ELEMENT` | step | The page changed since the snapshot, so the target id is gone | `GET /api/browser/snapshot`, pick the target again |
 | `OBSCURED` | step | Another element covers the target, usually a dialog | `press Escape`, re-snapshot, retry |
 | `WRONG_KIND` / `NO_SUCH_OPTION` | step | Op does not fit the element (e.g. `fill` on a button), or the option is not in the `{a|b}` list | Re-read the table line and use the right op or option |
@@ -200,6 +201,9 @@ Connection-level failures before any step return an HTTP error with detail `{cod
 | `JS_ERROR` / `CDP_PROTOCOL` | 502 before any step, or step mid-batch | The injected snapshot script or the browser returned an error | Reload the Flow tab and re-snapshot; if it repeats, report the `message` |
 | `WAIT_TIMEOUT` | step | `wait_for_text` did not see the text in `timeout_s` | Re-snapshot to see the real state; the job may still be running, or the label differs from what you expected |
 | `table_error` (with `table: null`) | act response | The steps ran but the final snapshot failed | Call `GET /api/browser/snapshot` separately; do not repeat the steps |
+| `INTERNAL` | step | A Flow Kit bug (an unexpected exception, not a page or CDP error). The batch stopped and the CDP connection was reset | `GET /api/browser/snapshot` to see whether the step happened; never resend the batch. Report the `detail` |
+| 422 `batch waits up to … s` | act request | The batch's `wait` + `wait_for_text` total exceeds 120 s | Split it: send the click on its own, then poll with separate `wait_for_text` calls of at most 90 s (`curl --max-time 110`) |
+| act response lost (curl timeout, killed command) | client side | The client gave up before the batch finished; the steps may have run | **Never resend.** `GET /api/browser/snapshot` and work out what happened first |
 
 ### D. YouTube upload errors (`youtube/upload.py`)
 

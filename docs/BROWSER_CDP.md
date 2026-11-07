@@ -70,7 +70,8 @@ Adjust the executable path if your browser is installed elsewhere.
   without the flag) when you are not using browser control.
 - Flow Kit connects to `127.0.0.1` only, and only to pages on the hosts in
   `FLOW_CDP_ALLOWED_HOSTS` (default `flow.google.com`). A step that finds the
-  page on another host fails with `HOST_NOT_ALLOWED`.
+  page on another host fails with `HOST_NOT_ALLOWED`, and a snapshot there shows
+  only the URL and `(host not allowed — no actions)`.
 
 ## 3. Enable and check
 
@@ -88,14 +89,17 @@ While `FLOW_CDP_ENABLED` is off, every `/api/browser/*` route returns 404 with
 |---------|---------|--------------|
 | `FLOW_CDP_ENABLED` | `0` | `1` turns on the `/api/browser/*` routes. |
 | `FLOW_CDP_PORT` | `9333` | The browser's debugging port. Must differ from `WS_PORT` (9222), else `PORT_CONFLICT`. |
-| `FLOW_CDP_ALLOWED_HOSTS` | `flow.google.com` | Comma-separated exact hostnames the page may be on. |
+| `FLOW_CDP_ALLOWED_HOSTS` | `flow.google.com` | Comma-separated exact hostnames the page may be on (case-insensitive). |
 | `FLOW_CDP_TIMEOUT_S` | `10` | Timeout for each CDP call. |
 
 ## 4. The extension
 
-The Flow Kit extension can stay installed in the same profile. Batch-RPC features
-(image and video generation, uploads) keep working alongside browser control, as
-long as the signed-in Flow tab stays open.
+The dedicated profile starts empty: it has none of your usual extensions. If you
+want the batch path (image and video generation, uploads) in the same browser,
+load the Flow Kit extension into it once: open `chrome://extensions` (Brave:
+`brave://extensions`), turn on Developer mode, click **Load unpacked** and pick
+this repository's `extension/` folder. After that, batch-RPC features keep working
+alongside browser control, as long as the signed-in Flow tab stays open.
 
 ## 5. Troubleshooting
 
