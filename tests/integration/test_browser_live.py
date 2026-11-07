@@ -1,7 +1,20 @@
+import asyncio
 import statistics
 import time
 
+from agent.browser.actions import (
+    ClickStep,
+    FillStep,
+    PressStep,
+    ScrollStep,
+    SelectStep,
+    WaitForTextStep,
+    perform,
+)
+from agent.browser.cdp import CdpError
 from agent.browser.snapshot import take_snapshot
+
+HOSTS = ["127.0.0.1"]
 
 
 async def test_snapshot_lists_only_visible_safe_controls(cdp_page):
@@ -87,3 +100,142 @@ async def test_resolve_and_select_option_contract(cdp_page):
     assert await c.evaluate(index_expr("resolve(1)")) == {"ok": False, "reason": "stale"}
     await c.evaluate(SNAPSHOT_JS)
     assert await c.evaluate("window.__fkIndex.version") == 1
+
+
+async def _ids(c):
+    return {a.label: a.id for a in (await take_snapshot(c)).actions}
+
+
+async def _body(c):
+    return await c.evaluate("document.body.innerText")
+
+
+async def test_click_dispatches_real_click(cdp_page):
+    c = await cdp_page("flow_like.html")
+    ids = await _ids(c)
+    r = await perform(c, ClickStep(op="click", target=ids["Start generation"]), HOSTS)
+    assert r.ok and r.op == "click" and r.error is None
+    assert "clicked:start" in await _body(c)
+
+
+async def test_fill_contenteditable_replaces_text_with_thai_and_emoji(cdp_page):
+    c = await cdp_page("flow_like.html")
+    ids = await _ids(c)
+    text = "แมวน่ารักนั่งบนโต๊ะ 🐱\nline two"
+    r = await perform(c, FillStep(op="fill", target=ids["Prompt box"], text=text), HOSTS)
+    assert r.ok
+    paragraphs = (
+        "[...document.querySelectorAll('.ProseMirror p')]"
+        ".map(p => p.textContent).join('\\n')"
+    )
+    assert await c.evaluate(paragraphs) == text
+    assert "old text" not in await c.evaluate(
+        "document.querySelector('.ProseMirror').textContent")
+
+
+async def test_fill_with_empty_text_clears_editor(cdp_page):
+    c = await cdp_page("flow_like.html")
+    ids = await _ids(c)
+    r = await perform(c, FillStep(op="fill", target=ids["Prompt box"], text=""), HOSTS)
+    assert r.ok
+    assert await c.evaluate(
+        "document.querySelector('.ProseMirror').textContent") == ""
+    assert "key:Backspace" in await _body(c)
+
+
+async def test_fill_on_button_is_wrong_kind(cdp_page):
+    c = await cdp_page("flow_like.html")
+    ids = await _ids(c)
+    r = await perform(c, FillStep(op="fill", target=ids["Start generation"], text="x"), HOSTS)
+    assert not r.ok and r.error == "WRONG_KIND"
+    assert "clicked:start" not in await _body(c)
+
+
+async def test_select_option_fires_change(cdp_page):
+    c = await cdp_page("flow_like.html")
+    ids = await _ids(c)
+    aspect = ids["Aspect ratio"]
+    r = await perform(c, SelectStep(op="select", target=aspect, option="Landscape"), HOSTS)
+    assert r.ok and "aspect:Landscape" in await _body(c)
+    r2 = await perform(c, SelectStep(op="select", target=aspect, option="Nope"), HOSTS)
+    assert r2.error == "NO_SUCH_OPTION"
+    r3 = await perform(
+        c, SelectStep(op="select", target=ids["Start generation"], option="Square"), HOSTS)
+    assert r3.error == "WRONG_KIND"
+
+
+async def test_click_removed_element_is_stale(cdp_page):
+    c = await cdp_page("flow_like.html")
+    ids = await _ids(c)
+    await c.evaluate("fixture.remove()")
+    r = await perform(c, ClickStep(op="click", target=ids["Remove me"]), HOSTS)
+    assert r.error == "STALE_ELEMENT"
+
+
+async def test_unknown_id_is_stale_even_before_any_snapshot(cdp_page):
+    c = await cdp_page("flow_like.html")
+    r = await perform(c, ClickStep(op="click", target="e999"), HOSTS)
+    assert r.error == "STALE_ELEMENT"
+    assert await c.evaluate("window.__fkIndex.version") == 1
+
+
+async def test_click_covered_element_is_obscured(cdp_page):
+    c = await cdp_page("flow_like.html")
+    ids = await _ids(c)
+    await c.evaluate("fixture.cover()")
+    r = await perform(c, ClickStep(op="click", target=ids["Start generation"]), HOSTS)
+    assert r.error == "OBSCURED" and "clicked:start" not in await _body(c)
+
+
+async def test_scroll_reveals_below_fold(cdp_page):
+    c = await cdp_page("flow_like.html")
+    assert "Below fold" not in await _ids(c)
+    r = await perform(c, ScrollStep(op="scroll", dy=2000), HOSTS)
+    assert r.ok
+    assert "Below fold" in {a.label for a in (await take_snapshot(c)).actions}
+
+
+async def test_press_enter_reaches_focused_editor(cdp_page):
+    c = await cdp_page("flow_like.html")
+    ids = await _ids(c)
+    assert (await perform(c, ClickStep(op="click", target=ids["Prompt box"]), HOSTS)).ok
+    r = await perform(c, PressStep(op="press", key="Enter"), HOSTS)
+    assert r.ok
+    assert "key:Enter" in await _body(c)
+
+
+async def test_wait_for_text_present_and_absent(cdp_page):
+    c = await cdp_page("flow_like.html")
+    await c.evaluate("fixture.showLater(1500, 'Generation complete')")
+    r = await perform(
+        c, WaitForTextStep(op="wait_for_text", text="Generation complete", timeout_s=5), HOSTS)
+    assert r.ok
+    gone = await perform(
+        c, WaitForTextStep(op="wait_for_text", text="never", timeout_s=1.5, absent=True), HOSTS)
+    assert gone.ok
+    t0 = time.monotonic()
+    r2 = await perform(
+        c, WaitForTextStep(op="wait_for_text", text="never", timeout_s=1.5), HOSTS)
+    assert r2.error == "WAIT_TIMEOUT"
+    assert 1.4 < time.monotonic() - t0 < 3.0
+
+
+async def test_steps_refused_after_leaving_allowed_host(cdp_page):
+    c = await cdp_page("flow_like.html")
+    ids = await _ids(c)
+    await perform(c, ClickStep(op="click", target=ids["Go elsewhere"]), HOSTS)
+    deadline = time.monotonic() + 3
+    host = None
+    while time.monotonic() < deadline:
+        try:
+            host = await c.evaluate("location.host")
+        except CdpError:
+            host = None
+        if host and host.startswith("localhost:"):
+            break
+        await asyncio.sleep(0.05)
+    assert host and host.startswith("localhost:")
+    r = await perform(c, ClickStep(op="click", target="e1"), HOSTS)
+    assert not r.ok and r.error == "HOST_NOT_ALLOWED"
+    # Refused before re-injecting: the off-host page never gets an index.
+    assert await c.evaluate("typeof window.__fkIndex") == "undefined"
