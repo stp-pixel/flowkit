@@ -15,7 +15,10 @@
   <h1>Flow-like fixture</h1>
 
   <div class="row">
-    <div class="ProseMirror" contenteditable="true" aria-label="Prompt box">old text</div>
+    <!-- Models ProseMirror's DOM shape only (block <p> children); it is a plain
+         contenteditable without ProseMirror's input handling, so it cannot prove
+         how Flow's real editor reacts to input. -->
+    <div class="ProseMirror" contenteditable="true" aria-label="Prompt box"><p>old text</p></div>
   </div>
 
   <div class="row">
