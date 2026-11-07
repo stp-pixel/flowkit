@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Flow-like fixture</title>
+<style>
+  body { margin: 8px; font: 14px/1.4 sans-serif; }
+  .row { margin: 6px 0; }
+  .ProseMirror { border: 1px solid #888; padding: 4px; min-height: 40px; width: 500px; white-space: pre-wrap; }
+  #log p { margin: 0; }
+  #spacer { height: 1200px; }
+</style>
+</head>
+<body>
+  <h1>Flow-like fixture</h1>
+
+  <div class="row">
+    <div class="ProseMirror" contenteditable="true" aria-label="Prompt box">old text</div>
+  </div>
+
+  <div class="row">
+    <button type="button" aria-label="Start generation" id="start">Generate</button>
+    <button type="button" style="display:none">Hidden</button>
+    <div aria-hidden="true"><button type="button">Ghost</button></div>
+    <button type="button" disabled>Disabled</button>
+  </div>
+
+  <div class="row">
+    <input type="password" aria-label="Password">
+    <input type="file" aria-label="Upload">
+  </div>
+
+  <div class="row">
+    <select aria-label="Aspect ratio" id="aspect">
+      <option value="Portrait" selected>Portrait</option>
+      <option value="Landscape">Landscape</option>
+      <option value="Square">Square</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <button type="button" id="remove-me">Remove me</button>
+    <button type="button" id="cover-me">Cover me</button>
+    <a id="away" href="other.html">Go elsewhere</a>
+  </div>
+
+  <div id="log"></div>
+
+  <button type="button" id="below" style="margin-top: 2000px">Below fold</button>
+  <div id="spacer"></div>
+
+<script>
+  (function () {
+    var editor = document.querySelector('.ProseMirror');
+    var logBox = document.getElementById('log');
+
+    function log(line) {
+      var p = document.createElement('p');
+      p.textContent = line;
+      logBox.appendChild(p);
+    }
+
+    // The "away" link points at the same server under a different host name.
+    document.getElementById('away').href =
+      'http://localhost:' + location.port + '/other.html';
+
+    document.getElementById('start').addEventListener('click', function () {
+      log('clicked:start');
+      log('typed:' + editor.innerText.trim());
+    });
+    document.getElementById('aspect').addEventListener('change', function (ev) {
+      log('aspect:' + ev.target.value);
+    });
+    editor.addEventListener('keydown', function (ev) {
+      log('key:' + ev.key);
+    });
+    document.getElementById('cover-me').addEventListener('click', function () {
+      log('clicked:cover-me');
+    });
+    document.getElementById('remove-me').addEventListener('click', function () {
+      log('clicked:remove-me');
+    });
+
+    window.fixture = {
+      remove: function () {
+        var el = document.getElementById('remove-me');
+        if (el) el.remove();
+      },
+      cover: function () {
+        var d = document.createElement('div');
+        d.id = 'cover';
+        d.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.3);';
+        document.body.appendChild(d);
+      },
+      showLater: function (ms, text) {
+        setTimeout(function () { log(text); }, ms);
+      }
+    };
+  })();
+</script>
+</body>
+</html>
