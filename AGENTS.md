@@ -84,6 +84,7 @@ This project has reusable skills in `skills/`. When the user says `/fk-<name>`, 
 | `/fk-action-choreography` | Action Choreography — AI Cinematic Combat & Motion Direction |
 | `/fk-add-material` | fk-add-material — Image Material System |
 | `/fk-brand-logo` | fk-brand-logo — Apply Channel Branding (Intro + Outro + Logo + 4K Badge) |
+| `/fk-browser` | Drive the Flow UI via DOM-indexed CDP snapshots (zero screenshots) — for Flow features the batch API lacks. |
 | `/fk-camera-guide` | Camera Guide — Cinematic Video Prompts (Veo 3) |
 | `/fk-change-model` | fk-change-model — View & Change Video/Image Model Keys |
 | `/fk-change-provider` | fk-change-provider — View & Switch the Reviewer for a Role |

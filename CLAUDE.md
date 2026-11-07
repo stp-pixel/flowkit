@@ -20,7 +20,7 @@ page can sign a Flow request, so nothing works headless.
 - Always use `/fk-*` skills — all rules and workflows live inside each skill
 - Never write scripts to loop API calls — use `POST /api/requests/batch`
 - `media_id` is always UUID format (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`), never `CAMS...` strings
-- **On any pipeline error** (request `FAILED`, stuck `PROCESSING`, `extension_connected: false`, HTTP 4xx/5xx from `:8100`, YouTube `HttpError`, error strings like `UNSAFE_GENERATION` / `not found` / `CAPTCHA` / `NO_AT_TOKEN` / `NO_FLOW_PROJECT` / `UNSUPPORTED_ON_BATCH_API`): invoke `/fk-doctor` before guessing a fix
+- **On any pipeline error** (request `FAILED`, stuck `PROCESSING`, `extension_connected: false`, HTTP 4xx/5xx from `:8100`, YouTube `HttpError`, error strings like `UNSAFE_GENERATION` / `not found` / `CAPTCHA` / `NO_AT_TOKEN` / `NO_FLOW_PROJECT` / `UNSUPPORTED_ON_BATCH_API`, or a browser-control code such as `CDP_UNREACHABLE` / `NO_FLOW_PAGE` / `PORT_CONFLICT` / `HOST_NOT_ALLOWED` / `STALE_ELEMENT` / `OBSCURED` / `CDP_CLOSED` / `CDP_TIMEOUT` / `JS_ERROR` / `CDP_PROTOCOL` / `WAIT_TIMEOUT`): invoke `/fk-doctor` before guessing a fix
 - `flow_key_present: false` is **normal** — the current transport has no bearer token
 
 ## Since Flow moved (September 2026)
@@ -70,6 +70,7 @@ that change how you work:
 | `/fk-change-provider` | View & switch the AI CLI, model and effort per role (claude/agy/codex) |
 | `/fk-insert-scene` | Insert scenes into chain |
 | `/fk-upload-image` | Upload local image to get media_id |
+| `/fk-browser` | Drive the Flow UI via DOM-indexed CDP snapshots (no screenshots) for features the batch API lacks |
 | `/fk-thumbnail` | Generate YouTube thumbnails |
 | `/fk-brand-logo` | Apply channel logo watermark |
 | `/fk-youtube-seo` | Generate YouTube metadata |
