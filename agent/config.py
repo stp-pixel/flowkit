@@ -60,6 +60,18 @@ FLOW_SESSION_PROJECT_IDLE_S = max(
     300.0, float(os.environ.get("FLOW_SESSION_PROJECT_IDLE_S", "7200"))
 )
 
+# ─── Browser control (CDP) ──────────────────────────────────
+# DOM-indexed control of a signed-in Chrome over the DevTools Protocol. Always
+# loopback (127.0.0.1). Off by default; the port must differ from WS_PORT.
+FLOW_CDP_ENABLED = os.environ.get("FLOW_CDP_ENABLED", "0") == "1"
+FLOW_CDP_PORT = int(os.environ.get("FLOW_CDP_PORT", "9333"))
+FLOW_CDP_ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.environ.get("FLOW_CDP_ALLOWED_HOSTS", "flow.google.com").split(",")
+    if h.strip()
+]
+FLOW_CDP_TIMEOUT_S = float(os.environ.get("FLOW_CDP_TIMEOUT_S", "10"))
+
 # The tier no longer picks a model — aspect is its own slot and the model names
 # are fixed — so it is only carried for the DB column and the dashboard.
 DEFAULT_PAYGATE_TIER = os.environ.get("DEFAULT_PAYGATE_TIER", "PAYGATE_TIER_TWO")
