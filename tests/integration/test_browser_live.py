@@ -164,6 +164,27 @@ async def test_select_option_fires_change(cdp_page):
     assert r3.error == "WRONG_KIND"
 
 
+async def test_select_on_hidden_or_disabled_target_fails_without_change(cdp_page):
+    c = await cdp_page("flow_like.html")
+    aspect = (await _ids(c))["Aspect ratio"]
+    step = SelectStep(op="select", target=aspect, option="Landscape")
+
+    await c.evaluate("document.getElementById('aspect').style.display = 'none'")
+    r = await perform(c, step, HOSTS)
+    assert (r.ok, r.error, r.detail) == (False, "STALE_ELEMENT", "hidden")
+
+    await c.evaluate("{ const a = document.getElementById('aspect');"
+                     " a.style.display = ''; a.disabled = true; }")
+    assert (await perform(c, step, HOSTS)).error == "STALE_ELEMENT"
+
+    await c.evaluate("{ const a = document.getElementById('aspect'); a.disabled = false;"
+                     " a.options[1].disabled = true; }")
+    assert (await perform(c, step, HOSTS)).error == "STALE_ELEMENT"
+
+    assert "aspect:" not in await _body(c)
+    assert await c.evaluate("document.getElementById('aspect').value") == "Portrait"
+
+
 async def test_click_removed_element_is_stale(cdp_page):
     c = await cdp_page("flow_like.html")
     ids = await _ids(c)

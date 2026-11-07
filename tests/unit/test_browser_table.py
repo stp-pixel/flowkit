@@ -128,6 +128,7 @@ def test_step_validation():
     adapter = TypeAdapter(Step)
     good = [
         {"op": "click", "target": "e12"},
+        {"op": "click", "target": "e123456789"},
         {"op": "fill", "target": "e1", "text": ""},
         {"op": "fill", "target": "e1", "text": "x" * 4000},
         {"op": "select", "target": "e7", "option": "Landscape"},
@@ -142,6 +143,10 @@ def test_step_validation():
     bad = [
         {"op": "click", "target": "12"},
         {"op": "click", "target": "e12 "},
+        {"op": "click", "target": "e" + "9" * 5000},
+        {"op": "click", "target": "e\u0e51"},
+        {"op": "click", "target": "e1234567890"},
+        {"op": "click", "target": "e"},
         {"op": "fill", "target": "e1", "text": "x" * 4001},
         {"op": "scroll", "dy": 5000},
         {"op": "wait", "ms": 20000},

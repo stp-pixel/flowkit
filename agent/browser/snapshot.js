@@ -199,9 +199,11 @@
     const e = lookup(n);
     if (!e) return { ok: false, reason: 'stale' };
     if (e.tagName !== 'SELECT') return { ok: false, reason: 'wrong_kind' };
+    if (isHidden(e) || isDisabled(e)) return { ok: false, reason: 'hidden' };
     const want = clean(label);
     const opt = Array.from(e.options).find((o) => optionLabel(o) === want);
     if (!opt) return { ok: false, reason: 'no_such_option' };
+    if (opt.matches(':disabled')) return { ok: false, reason: 'hidden' };
     e.value = opt.value;
     e.dispatchEvent(new Event('input', { bubbles: true }));
     e.dispatchEvent(new Event('change', { bubbles: true }));

@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from agent.browser.cdp import CdpClient, CdpError, host_allowed
 from agent.browser.snapshot import SNAPSHOT_JS, index_expr
 
-Target = Annotated[str, Field(pattern=r"^e\d+$")]
+Target = Annotated[str, Field(pattern=r"^e[0-9]{1,9}$")]
 
 
 class ClickStep(BaseModel):
@@ -82,6 +82,7 @@ RESOLVE_ERRORS = {
 }
 SELECT_ERRORS = {
     "stale": "STALE_ELEMENT",
+    "hidden": "STALE_ELEMENT",
     "no_such_option": "NO_SUCH_OPTION",
     "wrong_kind": "WRONG_KIND",
 }
