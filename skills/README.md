@@ -34,6 +34,7 @@ Workflow skills for AI agents and humans. Each skill is a step-by-step recipe.
 | `fk-character-bible` | [fk-character-bible.md](fk-character-bible.md) | Biometric anchor sheets, wardrobe state matrices & series manifest engine |
 | `fk-add-material` | [fk-add-material.md](fk-add-material.md) | Image material management (realistic, 3d_pixar, anime, etc.) |
 | `fk-upload-image` | [fk-upload-image.md](fk-upload-image.md) | Upload local images to Google Flow to get UUID media_ids |
+| `fk-browser` | [fk-browser.md](fk-browser.md) | Drive the Flow UI over CDP with DOM-indexed snapshots (no screenshots) for features the batch API lacks |
 | `fk-fix-uuids` | [fk-fix-uuids.md](fk-fix-uuids.md) | Repair legacy CAMS... media_ids to standard UUID format |
 | `fk-refresh-urls` | [fk-refresh-urls.md](fk-refresh-urls.md) | Re-sign expired media URLs for scenes and entity reference images |
 

@@ -275,6 +275,10 @@ extension are not needed for muse2api requests. Full setup:
 | `FLOW_ALLOW_DEGRADED` | `0` | `1` lets scene chaining and r2v fall back to plain i2v instead of failing. |
 | `FLOW_GENERATION_MAX_CONCURRENT` / `FLOW_GENERATION_MIN_INTERVAL_S` | `1` / `3` | Every CAPTCHA-bearing Flow generation submit is serialised and spaced by at least this many seconds. |
 | `FLOW_UNUSUAL_ACTIVITY_COOLDOWN_S` | `3600` | After Google answers `PUBLIC_ERROR_UNUSUAL_ACTIVITY`, no generation is submitted for this long. The hold is saved to `flow_generation_hold.json` and survives a restart; see [Account safety](#account-safety). |
+| `FLOW_CDP_ENABLED` | `0` | `1` enables `/api/browser/*` (DOM-indexed browser control over CDP). Needs a browser launched per [docs/BROWSER_CDP.md](docs/BROWSER_CDP.md). |
+| `FLOW_CDP_PORT` | `9333` | The browser's remote-debugging port. Must not be 9222 (`WS_PORT`, the extension bridge). |
+| `FLOW_CDP_ALLOWED_HOSTS` | `flow.google.com` | Comma-separated exact hostnames browser control may act on. |
+| `FLOW_CDP_TIMEOUT_S` | `10` | Timeout in seconds for each CDP call. |
 | `FLOWKIT_DEBUG_ENDPOINTS` | `0` | `1` enables the debug routes (`/api/ext/eval-tab`, `/api/ext/test-*`, `/api/ext/stream-chat`, `/api/test-direct`, …). They run code in the signed-in Flow tab or submit outside the worker's safety checks, so leave them off. The API itself refuses cross-site browser requests; only localhost pages and the extension may call it. |
 | `FLOWKIT_ALLOWED_HOSTS` | — | Extra `Host` names the API answers to besides `localhost`, `127.0.0.1` and `API_HOST` (comma-separated), e.g. a tunnel hostname. Any other `Host` is refused, which blocks DNS rebinding. |
 | `DEFAULT_PAYGATE_TIER` | `PAYGATE_TIER_TWO` | Carried for the DB and dashboard; no longer selects a model. |
